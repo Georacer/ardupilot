@@ -322,6 +322,16 @@ bool AP_Logger_Backend::Write_Mission_Cmd(const AP_Mission &mission,
     return WriteBlock(&pkt, sizeof(pkt));
 }
 
+bool AP_Logger_Backend::Write_hagl(const float &height)
+{
+    const struct log_hagl pkt{
+        LOG_PACKET_HEADER_INIT(LOG_HAGL_MSG),
+        time_us     : AP_HAL::micros64(),
+        height      : height
+    };
+    return WriteBlock(&pkt, sizeof(pkt));
+}
+
 #if AP_MISSION_ENABLED
 bool AP_Logger_Backend::Write_EntireMission()
 {

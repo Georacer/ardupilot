@@ -250,8 +250,10 @@ void Plane::update_logging10(void)
     if (should_log(MASK_LOG_ATTITUDE_MED) && !log_faster) {
         Log_Write_Attitude();
         ahrs.Write_AOA_SSA();
+        Log_Write_HAGL();
     } else if (log_faster) {
         ahrs.Write_AOA_SSA();
+        Log_Write_HAGL();
     }
 #if HAL_MOUNT_ENABLED
     if (should_log(MASK_LOG_CAMERA)) {

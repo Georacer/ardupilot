@@ -918,6 +918,7 @@ private:
     // Log.cpp
     void Log_Write_FullRate(void);
     void Log_Write_Attitude(void);
+    void Log_Write_HAGL(void);
     void Log_Write_Control_Tuning();
     void Log_Write_OFG_Guided();
     void Log_Write_Guided(void);

@@ -365,6 +365,11 @@ struct PACKED log_Cmd {
     float altitude;
     uint8_t frame;
 };
+struct PACKED log_hagl {
+    LOG_PACKET_HEADER;
+    uint64_t time_us;
+    float height;
+};
 
 struct PACKED log_MAVLink_Command {
     LOG_PACKET_HEADER;
@@ -1220,6 +1225,8 @@ LOG_STRUCTURE_FROM_PRECLAND \
       "MCU","Qffff","TimeUS,MTemp,MVolt,MVmin,MVmax", "sOvvv", "F0000", true }, \
     { LOG_CMD_MSG, sizeof(log_Cmd), \
       "CMD", "QHHHffffLLfB","TimeUS,CTot,CNum,CId,Prm1,Prm2,Prm3,Prm4,Lat,Lng,Alt,Frame", "s-------DUm-", "F-------GG0-" }, \
+    { LOG_HAGL_MSG, sizeof(log_hagl), \
+      "HAG2", "Qf","TimeUS,h", "sm", "F-" }, \
     { LOG_MAVLINK_COMMAND_MSG, sizeof(log_MAVLink_Command), \
       "MAVC", "QBBBBBHffffiifBB","TimeUS,TS,TC,SS,SC,Fr,Cmd,P1,P2,P3,P4,X,Y,Z,Res,WL", "s---------------", "F---------------" }, \
     { LOG_RADIO_MSG, sizeof(log_Radio), \
@@ -1327,6 +1334,7 @@ enum LogMessages : uint8_t {
     LOG_IDS_FROM_AHRS,
     LOG_SIMSTATE_MSG,
     LOG_CMD_MSG,
+    LOG_HAGL_MSG,
     LOG_MAVLINK_COMMAND_MSG,
     LOG_RADIO_MSG,
     LOG_ATRP_MSG,

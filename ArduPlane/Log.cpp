@@ -57,6 +57,13 @@ void Plane::Log_Write_Attitude(void)
     AP::ahrs().Log_Write();
 }
 
+void Plane::Log_Write_HAGL(void)
+{
+    bool temp;
+    float height = get_landing_height(temp);
+    logger.Write_hagl(height);
+}
+
 // do fast logging for plane
 void Plane::Log_Write_FullRate(void)
 {

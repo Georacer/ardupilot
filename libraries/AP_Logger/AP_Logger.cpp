@@ -901,6 +901,11 @@ void AP_Logger::Write_Mission_Cmd(const AP_Mission &mission,
     FOR_EACH_BACKEND(Write_Mission_Cmd(mission, cmd));
 }
 
+void AP_Logger::Write_hagl(const float &height)
+{
+    FOR_EACH_BACKEND(Write_hagl(height));
+}
+
 #if HAL_RALLY_ENABLED
 void AP_Logger::Write_RallyPoint(uint8_t total,
                                  uint8_t sequence,
