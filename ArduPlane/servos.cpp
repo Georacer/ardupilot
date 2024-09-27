@@ -518,9 +518,6 @@ float Plane::apply_throttle_limits(float throttle_in)
     }
 
     const bool use_takeoff_throttle_max =
-#if HAL_QUADPLANE_ENABLED
-        quadplane.in_transition() ||
-#endif
         (flight_stage == AP_FixedWing::FlightStage::TAKEOFF) ||
         (flight_stage == AP_FixedWing::FlightStage::ABORT_LANDING);
 
