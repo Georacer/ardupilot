@@ -3937,6 +3937,27 @@ class AutoTestCopter(vehicle_test_suite.TestSuite):
             self.wait_climbrate(-speed_ms-1, -speed_ms+1, minimum_duration=minimum_duration)
         self.do_RTL()
 
+    def WPNAV_SPEED_DN_capping(self):
+        '''Ensure speed is limited in presence of errors.'''
+
+        self.set_parameters({
+            "GPS_AUTO_SWITCH": 2,
+            "GPS2_TYPE": 1,
+            "SIM_GPS2_ENABLE": 1,
+            "SIM_GPS2_TYPE": 1,
+            'SIM_GPS2_ALT_OFS': 1
+        })
+        self.reboot_sitl()
+        self.set_parameter('EK3_SRC1_POSZ', 3)  # Set altitude source as GPS.
+        self.set_parameter('WPNAV_SPEED_DN', 80)  # Lower the limit so that it triggers.
+        self.takeoff(20, mode='GUIDED')
+        self.delay_sim_time(3)
+        self.set_parameter('SIM_GPS1_ALT_OFS', 7)
+        descent_rate = self.get_parameter('WPNAV_SPEED_DN') / 100.0
+        self.wait_climbrate(-descent_rate-0.1, 0.5, minimum_duration=5, timeout=5.5)
+
+        self.disarm_vehicle(force=True)
+
     def fly_mission(self, filename, strict=True):
         num_wp = self.load_mission(filename, strict=strict)
         self.set_parameter("AUTO_OPTIONS", 3)
@@ -12272,6 +12293,7 @@ class AutoTestCopter(vehicle_test_suite.TestSuite):
             self.WPNAV_SPEED,
             self.WPNAV_SPEED_UP,
             self.WPNAV_SPEED_DN,
+            self.WPNAV_SPEED_DN_capping,
             self.DO_WINCH,
             self.SensorErrorFlags,
             self.GPSForYaw,
