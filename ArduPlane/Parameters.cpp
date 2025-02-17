@@ -783,7 +783,7 @@ const AP_Param::Info Plane::var_info[] = {
     // @Param: RNGFND_LANDING
     // @DisplayName: Enable rangefinder for landing
     // @Description: This enables the use of a rangefinder for automatic landing. The rangefinder will be used both on the landing approach and for final flare
-    // @Values: 0:Disabled,1:Enabled
+    // @Values: 0:Disabled,1:Enabled,2:Don't use for Quadplane altitude assist
     // @User: Standard
     GSCALAR(rangefinder_landing,    "RNGFND_LANDING",   0),
 

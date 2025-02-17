@@ -1502,7 +1502,7 @@ bool QuadPlane::should_assist(float aspeed, bool have_airspeed)
       optional assistance when altitude is too close to the ground
      */
     if (assist_alt > 0) {
-        float height_above_ground = plane.relative_ground_altitude(plane.g.rangefinder_landing);
+        float height_above_ground = plane.relative_ground_altitude(plane.g.rangefinder_landing==1);
         if (height_above_ground < assist_alt) {
             if (alt_error_start_ms == 0) {
                 alt_error_start_ms = now;
