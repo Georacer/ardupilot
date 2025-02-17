@@ -389,7 +389,7 @@ private:
       the status messages do not have an ESC ID in them, so we need a
       mapping from node ID
     */
-    #define HOBBYWING_MAX_ESC 8
+    #define HOBBYWING_MAX_ESC 12
     struct {
         uint32_t last_GetId_send_ms;
         uint8_t thr_chan[HOBBYWING_MAX_ESC];
