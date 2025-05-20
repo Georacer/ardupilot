@@ -315,6 +315,8 @@ void Plane::stabilize_stick_mixing_fbw()
         nav_pitch_cd += -(pitch_input * pitch_limit_min*100);
     }
     nav_pitch_cd = constrain_int32(nav_pitch_cd, pitch_limit_min*100, aparm.pitch_limit_max.get()*100);
+    TECS_controller.set_pitch_min(0.01f*nav_pitch_cd);
+    TECS_controller.set_pitch_max(0.01f*nav_pitch_cd);
 }
 
 
