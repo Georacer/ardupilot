@@ -847,7 +847,7 @@ void AP_TECS::_update_throttle_with_airspeed(void)
             // @Field: Emax: upper limit for potential energy error
             AP::logger().WriteStreaming(
                 "TEC3",
-                "TimeUS," "KEDD," "PEDD," "TEE," "TEDE," "FFT," "Imin," "Imax," "I," "Emin," "Emax," "P," "K",
+                "TimeUS," "KED," "PED," "KEDD," "PEDD," "TEE," "TEDE," "FFT," "Imin," "Imax," "I," "Emin," "Emax",
                 "Q"       "f"     "f"     "f"    "f"     "f"    "f"     "f"     "f"  "f"     "f"     "f"  "f",
                 AP_HAL::micros64(),
                 (double)_SKEdot,
