@@ -432,6 +432,8 @@ private:
     bool _need_reset;
     // Flag if someone else drives throttle externally.
     bool _flag_throttle_forced;
+    // Flag if someone else drives pitch externally.
+    bool _flag_pitch_forced;
 
     // Checks if we reset at the beginning of takeoff.
     bool _flag_have_reset_after_takeoff;

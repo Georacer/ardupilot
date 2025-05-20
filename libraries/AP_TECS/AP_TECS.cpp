@@ -740,6 +740,13 @@ void AP_TECS::_update_throttle_with_airspeed(void)
          */
         SPE_err_max = SPE_err_min = 0;
     }
+    if (_PITCHmaxf < 0) {
+        /*
+        When our maximum pitch is negative there's no way we can hope to gain
+        altitude via throttle
+        */
+        SPE_err_max = SPE_err_min = 0;
+    }
 
     // rate of change of potential energy is proportional to height error
     _SPEdot_dem = (_SPE_dem - _SPE_est) / timeConstant();
@@ -1012,7 +1019,12 @@ void AP_TECS::_update_pitch(void)
         // height. This is needed as the usual relationship of speed
         // and height is broken by the VTOL motors
         _SKE_weighting = 0.0f;
-    } else if ( _flags.underspeed || _flight_stage == AP_FixedWing::FlightStage::TAKEOFF || _flight_stage == AP_FixedWing::FlightStage::ABORT_LANDING || _flags.is_gliding) {
+    } else if ( _flags.underspeed
+        || _flight_stage == AP_FixedWing::FlightStage::TAKEOFF
+        || _flight_stage == AP_FixedWing::FlightStage::ABORT_LANDING
+        || _flags.is_gliding
+        // || _flag_pitch_forced
+    ) {
         _SKE_weighting = 2.0f;
     } else if (_flags.is_doing_auto_land) {
         if (_spdWeightLand < 0) {
@@ -1562,6 +1574,12 @@ void AP_TECS::_update_pitch_limits(const int32_t ptchMinCO_cd) {
 
     // don't allow max pitch to go below min pitch
     _PITCHmaxf = MAX(_PITCHmaxf, _PITCHminf);
+
+    if (iszero(_PITCHmaxf - _PITCHminf)) {
+        _flag_pitch_forced = true;
+    } else {
+        _flag_pitch_forced = false;
+    }
 }
 
 void AP_TECS::offset_altitude(const float alt_offset)
