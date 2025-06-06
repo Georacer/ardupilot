@@ -17,6 +17,7 @@
 
   controls:
     - servo6: balloon lift, 1000 for no lift, 2000 for maximum lift
+    - servo7: flaps
     - servo10: balloon cut, this cuts away the balloon when high
 
   Note that the glider starts off in a lifted by tail pose, with pitch
@@ -147,7 +148,7 @@ Vector3f Glider::getTorque(float inputAileron, float inputElevator, float inputR
 }
 
 // Force calculation, return vector in Newtons
-Vector3f Glider::getForce(float inputAileron, float inputElevator, float inputRudder)
+Vector3f Glider::getForce(float inputAileron, float inputElevator, float inputRudder, float inputFlap)
 {
     const auto &m = model;
     const float aileron_rad = inputAileron * radians(m.aileronDeflectionLimitDeg);
@@ -160,6 +161,10 @@ Vector3f Glider::getForce(float inputAileron, float inputElevator, float inputRu
     float CA = m.CA2 * sq(alpharad) + m.CA1 * alpharad + m.CA0;
     float CY = (m.CY2 * sq(alpharad) + m.CY1 * alpharad + m.CY0) * betarad;
     float CN = m.CN2 * sq(alpharad) + m.CN1 * alpharad + m.CN0;
+
+    // Factor in the effect of flaps.
+    CA *= inputFlap * m.FlapDragMult;
+    CN *= inputFlap * m.FlapLiftMult;
 
     CN += m.deltaCNperRadianElev * elevator_rad;
     CA += m.deltaCAperRadianElev * elevator_rad;
@@ -275,10 +280,12 @@ void Glider::calculate_forces(const struct sitl_input &input, Vector3f &rot_acce
     filtered_servo_setup(4, 1100, 1900, model.aileronDeflectionLimitDeg);
     filtered_servo_setup(2, 1100, 1900, model.elevatorDeflectionLimitDeg);
     filtered_servo_setup(3, 1100, 1900, model.rudderDeflectionLimitDeg);
+    filtered_servo_setup(6, 1100, 1900, model.flapDeflectionLimitDeg);
     
     float aileron  = 0.5*(filtered_servo_angle(input, 1) + filtered_servo_angle(input, 4));
     float elevator = filtered_servo_angle(input, 2);
     float rudder   = filtered_servo_angle(input, 3);
+    float flap     = filtered_servo_range(input, 6);
     float balloon  = MAX(0.0f, filtered_servo_range(input, 5)); // Don't let the balloon receive downwards commands.
     float balloon_cut = filtered_servo_range(input, 9);
 
@@ -320,7 +327,7 @@ void Glider::calculate_forces(const struct sitl_input &input, Vector3f &rot_acce
     Vector3f force;
 
     if (!update_balloon(balloon, force, rot_accel)) {
-        force = getForce(aileron, elevator, rudder);
+        force = getForce(aileron, elevator, rudder, flap);
         rot_accel = getTorque(aileron, elevator, rudder, force);
     }
 

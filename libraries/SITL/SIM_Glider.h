@@ -160,6 +160,11 @@ protected:
         float deltaCnperRadianAil1 = 0.00773;
         float deltaCnperRadianAil2 = -0.01162;
 
+        // flap
+        float flapDeflectionLimitDeg = 30.0;
+        float flapLiftMult = 0.5; // Effect of flap at full deflection.
+        float flapDragMult = 0.5; // Effect of flap at full deflection.
+
         // Forces in the +X direction are –CA * q * Sref
         // Forces in the +Y direction are  +CY * q * Sref
         // Forces in the +Z direction are  –CN * q *Sref
@@ -177,7 +182,7 @@ protected:
 
     } model;
 
-    Vector3f getForce(float inputAileron, float inputElevator, float inputRudder);
+    Vector3f getForce(float inputAileron, float inputElevator, float inputRudder, float inputFlap);
     Vector3f getTorque(float inputAileron, float inputElevator, float inputRudder, const Vector3f &force) const;
     bool update_balloon(float balloon, Vector3f &force, Vector3f &rot_accel);
     void calculate_forces(const struct sitl_input &input, Vector3f &rot_accel, Vector3f &body_accel);
