@@ -7335,6 +7335,33 @@ class AutoTestPlane(vehicle_test_suite.TestSuite):
 
         self.fly_home_land_and_disarm()
 
+    def fly_tecs_test(self):
+        '''Fly the mission to test TECS.'''
+        self.context_push()
+
+        wps = self.create_simple_relhome_mission([
+            (mavutil.mavlink.MAV_CMD_NAV_TAKEOFF, 0, 0, 50),
+            (mavutil.mavlink.MAV_CMD_NAV_WAYPOINT, 500, 0, 100),
+            (mavutil.mavlink.MAV_CMD_NAV_WAYPOINT, 1000, 0, 100),
+            (mavutil.mavlink.MAV_CMD_NAV_WAYPOINT, 1500, 0, 100),
+            (mavutil.mavlink.MAV_CMD_NAV_WAYPOINT, 2000, 0, 110),
+            (mavutil.mavlink.MAV_CMD_NAV_WAYPOINT, 2500, 0, 100),
+            (mavutil.mavlink.MAV_CMD_NAV_WAYPOINT, 3300, 0, 300),
+            (mavutil.mavlink.MAV_CMD_NAV_WAYPOINT, 4000, 0, 300),
+            (mavutil.mavlink.MAV_CMD_NAV_WAYPOINT, 5000, 0, 100),
+            (mavutil.mavlink.MAV_CMD_NAV_WAYPOINT, 0, 0, 50),
+        ])
+        self.check_mission_upload_download(wps)
+
+        self.change_mode('AUTO')
+        self.wait_ready_to_arm()
+        self.arm_vehicle()
+        self.wait_current_waypoint(len(wps)-1, timeout=400)
+        self.disarm_vehicle(force=True)
+        # self.change_mode(26)  # AUTOLAND
+        # self.wait_disarmed(timeout=400)
+        self.context_pop()
+
     class ValidateVFRHudClimbAgainstSimState(vehicle_test_suite.TestSuite.MessageHook):
         '''monitors VFR_HUD to make sure reported climbrate is in-line with SIM_STATE.vd'''
         def __init__(self, suite, max_allowed_divergence=5):
@@ -7578,6 +7605,7 @@ class AutoTestPlane(vehicle_test_suite.TestSuite):
             self.SET_POSITION_TARGET_GLOBAL_INT_for_altitude,
             self.MAV_CMD_NAV_LOITER_TURNS_zero_turn,
             self.RudderArmingWithArmingChecksZero,
+            self.fly_tecs_test,
         ]
 
     def disabled_tests(self):
