@@ -162,8 +162,8 @@ protected:
 
         // flap
         float flapDeflectionLimitDeg = 30.0;
-        float flapLiftMult = 0.5; // Effect of flap at full deflection.
-        float flapDragMult = 0.5; // Effect of flap at full deflection.
+        float flapLiftMult = 1.5; // Effect of flap at full deflection.
+        float flapDragMult = 1.5; // Effect of flap at full deflection.
 
         // Forces in the +X direction are –CA * q * Sref
         // Forces in the +Y direction are  +CY * q * Sref

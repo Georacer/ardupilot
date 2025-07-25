@@ -163,8 +163,8 @@ Vector3f Glider::getForce(float inputAileron, float inputElevator, float inputRu
     float CN = m.CN2 * sq(alpharad) + m.CN1 * alpharad + m.CN0;
 
     // Factor in the effect of flaps.
-    CA *= inputFlap * m.FlapDragMult;
-    CN *= inputFlap * m.FlapLiftMult;
+    CA *= inputFlap * m.flapDragMult;
+    CN *= inputFlap * m.flapLiftMult;
 
     CN += m.deltaCNperRadianElev * elevator_rad;
     CA += m.deltaCAperRadianElev * elevator_rad;
