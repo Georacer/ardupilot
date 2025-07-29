@@ -7339,6 +7339,8 @@ class AutoTestPlane(vehicle_test_suite.TestSuite):
         '''Fly the mission to test TECS.'''
         self.context_push()
 
+        self.load_params_file("/home/george/Dropbox/George/60-69 Personal hobby projects/63 Aerospace/63.18_ardupilot_controller_analysis/tecs_analysis_2/temp_dir/sample_point.parm")
+
         wps = self.create_simple_relhome_mission([
             (mavutil.mavlink.MAV_CMD_NAV_TAKEOFF, 0, 0, 50),
             (mavutil.mavlink.MAV_CMD_NAV_WAYPOINT, 500, 0, 100),
