@@ -295,6 +295,8 @@ private:
         void set_surface(Surface new_surface);
         // initialise surface tracking
         void init(Surface surf) { surface = surf; }
+        // request a reset on the next iteration
+        void request_reset() { reset_target = true; }
 
     private:
         Surface surface;

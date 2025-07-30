@@ -21,6 +21,9 @@ bool ModeLoiter::init(bool ignore_checks)
 
     loiter_nav->init_target();
 
+    // Reinitialize surface tracking.
+    copter.surface_tracking.request_reset();
+
     // initialise the vertical position controller
     if (!pos_control->is_active_U()) {
         pos_control->init_U_controller();
