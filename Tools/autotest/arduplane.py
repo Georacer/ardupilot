@@ -4709,7 +4709,9 @@ class AutoTestPlane(vehicle_test_suite.TestSuite):
         '''Circuit with baro drift and a receding runway.'''
         global SITL_START_LOCATION
         default_start_loc = copy.copy(SITL_START_LOCATION)
-        start_loc = mavutil.location(38.64259672886321, 22.587240539282362, 399.3, 40)  # A region where the landing is sloped.
+        # Start from a region where the landing is sloped downwards.
+        # Also the initial altitude is greater than what is predicted by the terrain database.
+        start_loc = mavutil.location(38.64259672886321, 22.587240539282362, 429.3, 40)
         SITL_START_LOCATION = start_loc
         self.customise_SITL_commandline(["--home=%.9f,%.9f,%.2f,%.1f" % (
             start_loc.lat, start_loc.lng, start_loc.alt, start_loc.heading)], wipe=True)
@@ -4726,7 +4728,7 @@ class AutoTestPlane(vehicle_test_suite.TestSuite):
             "LAND_ABORT_THR": 1,
             "MIS_RESTART": 1,
             "WP_LOITER_RAD": 125,
-            "TERRAIN_OFS_MAX": 0,
+            # "TERRAIN_OFS_MAX": 40,
             # "WP_RADIUS:": 150,
         })
 
@@ -4744,13 +4746,13 @@ class AutoTestPlane(vehicle_test_suite.TestSuite):
         self.wait_groundspeed(0, 10, timeout=5)
 
         # Wait for landing waypoint
-        self.wait_current_waypoint(9, timeout=800)
+        self.wait_current_waypoint(5, timeout=800)
 
-        # Wait for landing restart
-        self.wait_current_waypoint(5, timeout=240)
+        # Wait for landing restart and its next waypoint.
+        self.wait_current_waypoint(4, timeout=240)
 
         # Wait for landing waypoint (second attempt)
-        self.wait_current_waypoint(9, timeout=1200)
+        self.wait_current_waypoint(5, timeout=100)
 
         self.wait_disarmed(timeout=180)
 
