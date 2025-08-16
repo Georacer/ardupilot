@@ -4705,6 +4705,57 @@ class AutoTestPlane(vehicle_test_suite.TestSuite):
 
         self.wait_disarmed(timeout=180)
 
+    def LandingDrift2(self):
+        '''Circuit with baro drift and a receding runway.'''
+        global SITL_START_LOCATION
+        default_start_loc = copy.copy(SITL_START_LOCATION)
+        start_loc = mavutil.location(38.64259672886321, 22.587240539282362, 399.3, 40)  # A region where the landing is sloped.
+        SITL_START_LOCATION = start_loc
+        self.customise_SITL_commandline(["--home=%.9f,%.9f,%.2f,%.1f" % (
+            start_loc.lat, start_loc.lng, start_loc.alt, start_loc.heading)], wipe=True)
+
+        self.set_analog_rangefinder_parameters()
+
+        self.set_parameters({
+            "SIM_BARO_DRIFT": 0.04,
+            "SIM_TERRAIN": 1,
+            "EK3_SRC1_POSZ": 3,
+            "RNGFND_LANDING": 1,
+            "LAND_SLOPE_RCALC": 2,
+            "LAND_ABORT_DEG": 2,
+            "LAND_ABORT_THR": 1,
+            "MIS_RESTART": 1,
+            "WP_LOITER_RAD": 125,
+            "TERRAIN_OFS_MAX": 0,
+            # "WP_RADIUS:": 150,
+        })
+
+        self.reboot_sitl(check_position=False)
+
+        self.wait_ready_to_arm()
+        self.assert_parameter_value("RNGFND_LANDING", 1)
+        self.arm_vehicle()
+
+        # Load and start mission
+        self.load_mission("landing_drift_2.txt", strict=True)
+        self.set_current_waypoint(1, check_afterwards=True)
+        self.change_mode('AUTO')
+        self.wait_current_waypoint(1, timeout=5)
+        self.wait_groundspeed(0, 10, timeout=5)
+
+        # Wait for landing waypoint
+        self.wait_current_waypoint(9, timeout=800)
+
+        # Wait for landing restart
+        self.wait_current_waypoint(5, timeout=240)
+
+        # Wait for landing waypoint (second attempt)
+        self.wait_current_waypoint(9, timeout=1200)
+
+        self.wait_disarmed(timeout=180)
+
+        SITL_START_LOCATION = default_start_loc
+
     def TakeoffAuto1(self):
         '''Test the behaviour of an AUTO takeoff, pt1.'''
         '''
@@ -8010,6 +8061,7 @@ class AutoTestPlane(vehicle_test_suite.TestSuite):
             self.AHRS_ORIENTATION,
             self.AHRSTrim,
             self.LandingDrift,
+            self.LandingDrift2,
             self.TakeoffAuto1,
             self.TakeoffAuto2,
             self.TakeoffAuto3,
