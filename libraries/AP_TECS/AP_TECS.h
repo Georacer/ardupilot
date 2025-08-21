@@ -347,10 +347,16 @@ private:
         // true when a reset of airspeed and height states to current is performed on this frame
         bool reset:1;
 
+        // True if the desired climb is infeasible
+        bool max_climb_condition:1;
+
+        // True if the desired descent is infeasible
+        bool max_descent_condition:1;
+
     };
     union {
         struct flags _flags;
-        uint8_t _flags_byte;
+        uint16_t _flags_bytes;
     };
 
     // time when underspeed started

@@ -587,8 +587,11 @@ void AP_TECS::_update_height_demand(void)
                 // if vehicle is unable to follow the demanded climb or descent
             bool max_climb_condition   = (_pitch_dem_unc > _PITCHmaxf) ||
                                             (_SEBdot_dem_clip == clipStatus::MAX);
+            _flags.max_climb_condition |= max_climb_condition;
             bool max_descent_condition = (_pitch_dem_unc < _PITCHminf) ||
                                             (_SEBdot_dem_clip == clipStatus::MIN);
+            _flags.max_descent_condition |= max_descent_condition;
+
             if (_using_airspeed_for_throttle) {
                 // large height errors will result in the throttle saturating
                 max_climb_condition   |= (_thr_clip_status == clipStatus::MAX) &&
@@ -1305,6 +1308,8 @@ void AP_TECS::update_pitch_throttle(int32_t hgt_dem_cm,
     } else {
         _hgt_dem_in = _hgt_dem_in_raw;
     }
+    _flags.max_climb_condition = max_climb_condition;
+    _flags.max_descent_condition = max_descent_condition;
 
     // Update the throttle limits.
     _update_throttle_limits();
@@ -1387,7 +1392,7 @@ void AP_TECS::update_pitch_throttle(int32_t hgt_dem_cm,
         AP::logger().WriteStreaming("TECS", "TimeUS,h,dh,hin,hdem,dhdem,spdem,sp,dsp,th,ph,pmin,pmax,dspdem,f",
                                     "smnmmnnnn------",
                                     "F00000000------",
-                                    "QfffffffffffffB",
+                                    "QfffffffffffffH",
                                     now,
                                     (double)_height,
                                     (double)_climb_rate,
@@ -1402,7 +1407,7 @@ void AP_TECS::update_pitch_throttle(int32_t hgt_dem_cm,
                                     (double)_PITCHminf,
                                     (double)_PITCHmaxf,
                                     (double)_TAS_rate_dem,
-                                    _flags_byte);
+                                    _flags_bytes);
     }
 #endif
 }
