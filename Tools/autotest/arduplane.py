@@ -7340,6 +7340,7 @@ class AutoTestPlane(vehicle_test_suite.TestSuite):
         self.context_push()
 
         self.load_params_file("/home/george/Dropbox/George/60-69 Personal hobby projects/63 Aerospace/63.18_ardupilot_controller_analysis/tecs_analysis_2/temp_dir/sample_point.parm")
+        self.set_parameter("FLIGHT_OPTIONS", 16384)  # Climb to alt immediately.
 
         wps = self.create_simple_relhome_mission([
             (mavutil.mavlink.MAV_CMD_NAV_TAKEOFF, 0, 0, 50),
@@ -7350,6 +7351,7 @@ class AutoTestPlane(vehicle_test_suite.TestSuite):
             (mavutil.mavlink.MAV_CMD_NAV_WAYPOINT, 2500, 0, 100),
             (mavutil.mavlink.MAV_CMD_NAV_WAYPOINT, 3300, 0, 300),
             (mavutil.mavlink.MAV_CMD_NAV_WAYPOINT, 4000, 0, 300),
+            (mavutil.mavlink.MAV_CMD_NAV_WAYPOINT, 4100, 0, 100),
             (mavutil.mavlink.MAV_CMD_NAV_WAYPOINT, 5000, 0, 100),
             (mavutil.mavlink.MAV_CMD_NAV_WAYPOINT, 0, 0, 50),
         ])
