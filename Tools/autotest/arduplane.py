@@ -7339,9 +7339,7 @@ class AutoTestPlane(vehicle_test_suite.TestSuite):
         '''Fly the mission to test TECS.'''
         self.context_push()
 
-        self.load_params_file("/home/george/Dropbox/George/60-69 Personal hobby projects/63 Aerospace/63.18_ardupilot_controller_analysis/tecs_analysis_2/temp_dir/sample_point.parm")
-        self.set_parameter("FLIGHT_OPTIONS", 16384)  # Climb to alt immediately.
-
+        # Set the mission.
         wps = self.create_simple_relhome_mission([
             (mavutil.mavlink.MAV_CMD_NAV_TAKEOFF, 0, 0, 50),
             (mavutil.mavlink.MAV_CMD_NAV_WAYPOINT, 500, 0, 100),
@@ -7349,21 +7347,30 @@ class AutoTestPlane(vehicle_test_suite.TestSuite):
             (mavutil.mavlink.MAV_CMD_NAV_WAYPOINT, 1500, 0, 100),
             (mavutil.mavlink.MAV_CMD_NAV_WAYPOINT, 2000, 0, 110),
             (mavutil.mavlink.MAV_CMD_NAV_WAYPOINT, 2500, 0, 100),
-            (mavutil.mavlink.MAV_CMD_NAV_WAYPOINT, 3300, 0, 300),
-            (mavutil.mavlink.MAV_CMD_NAV_WAYPOINT, 4000, 0, 300),
+            (mavutil.mavlink.MAV_CMD_NAV_WAYPOINT, 3300, 0, 600),
+            (mavutil.mavlink.MAV_CMD_NAV_WAYPOINT, 4000, 0, 600),
             (mavutil.mavlink.MAV_CMD_NAV_WAYPOINT, 4100, 0, 100),
             (mavutil.mavlink.MAV_CMD_NAV_WAYPOINT, 5000, 0, 100),
             (mavutil.mavlink.MAV_CMD_NAV_WAYPOINT, 0, 0, 50),
         ])
         self.check_mission_upload_download(wps)
 
+        # Start the mission.
         self.change_mode('AUTO')
         self.wait_ready_to_arm()
         self.arm_vehicle()
-        self.wait_current_waypoint(len(wps)-1, timeout=400)
+
+        # Wait for the takeoff to complete before changing parameters.
+        self.wait_current_waypoint(2, timeout=60)
+        # Configure parameters.
+        self.load_params_file("/home/george/Dropbox/George/60-69 Personal hobby projects/63 Aerospace/63.18_ardupilot_controller_analysis/tecs_analysis_2/temp_dir/sample_point.parm")
+        self.set_parameter("FLIGHT_OPTIONS", 16384)  # Climb to alt immediately.
+        # Ensure down-pitch-rate is the same as up-pitch rate.
+        PTCH2SRV_RMAX_UP = self.get_parameter("PTCH2SRV_RMAX_UP")
+        self.set_parameter("PTCH2SRV_RMAX_DN", PTCH2SRV_RMAX_UP)
+
+        self.wait_current_waypoint(len(wps)-1, timeout=800)
         self.disarm_vehicle(force=True)
-        # self.change_mode(26)  # AUTOLAND
-        # self.wait_disarmed(timeout=400)
         self.context_pop()
 
     class ValidateVFRHudClimbAgainstSimState(vehicle_test_suite.TestSuite.MessageHook):
