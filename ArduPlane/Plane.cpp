@@ -280,6 +280,11 @@ void Plane::update_logging10(void)
         camera_mount.write_log();
     }
 #endif
+#if AP_RANGEFINDER_ENABLED
+    if (should_log(MASK_LOG_NTUN)) {
+        Log_Write_Rangefinder_State();
+    }
+#endif
 }
 
 /*
