@@ -4714,7 +4714,7 @@ class AutoTestPlane(vehicle_test_suite.TestSuite):
         start_loc = mavutil.location(-43.829250, 172.539802, 18.549999, 35)
         SITL_START_LOCATION = start_loc
         self.customise_SITL_commandline(["--home=%.9f,%.9f,%.2f,%.1f" % (
-            start_loc.lat, start_loc.lng, start_loc.alt, start_loc.heading)], wipe=True)
+            start_loc.lat, start_loc.lng, start_loc.alt, start_loc.heading)])
 
         self.set_analog_rangefinder_parameters()
 
@@ -4737,7 +4737,7 @@ class AutoTestPlane(vehicle_test_suite.TestSuite):
             # "WP_RADIUS:": 150,
         })
 
-        self.reboot_sitl(check_position=False)
+        self.reboot_sitl()
 
         self.wait_ready_to_arm()
         self.assert_parameter_value("RNGFND_LANDING", 1)
