@@ -4712,6 +4712,7 @@ class AutoTestPlane(vehicle_test_suite.TestSuite):
         # Start from a region where the landing is sloped downwards.
         # Also the initial altitude is greater than what is predicted by the terrain database.
         start_loc = mavutil.location(-43.829250, 172.539802, 18.549999, 35)
+        # start_loc = mavutil.location(-43.829250, 172.539802, 30, 35)
         SITL_START_LOCATION = start_loc
         self.customise_SITL_commandline(["--home=%.9f,%.9f,%.2f,%.1f" % (
             start_loc.lat, start_loc.lng, start_loc.alt, start_loc.heading)])
@@ -4719,18 +4720,19 @@ class AutoTestPlane(vehicle_test_suite.TestSuite):
         self.set_analog_rangefinder_parameters()
 
         self.set_parameters({
-            "SIM_BARO_DRIFT": 0.04,
-            "SIM_BAR2_DRIFT": 0.04,
+            "SIM_BARO_DRIFT": 0.02,
+            "SIM_BAR2_DRIFT": 0.02,
             "SIM_TERRAIN": 1,
             "EK3_SRC1_POSZ": 1,
             "EK3_OGN_HGT_MASK": 5,
             "RNGFND_LANDING": 1,
+            "RNGFND1_MAX": 120,
+            "RNGFND1_SCALING": 40,
+            "RNGFND1_OFFSET": 0,
             "LAND_SLOPE_RCALC": 2,
             "LAND_ABORT_DEG": 2,
             "LAND_ABORT_THR": 1,
             "MIS_RESTART": 1,
-            "RNGFND1_MAX": 150,
-            "RNGFND1_SCALING": 40,
             "SIM_SONAR_SCALE": 40,
             "WP_LOITER_RAD": 125,
             # "TERRAIN_OFS_MAX": 40,
@@ -4740,8 +4742,12 @@ class AutoTestPlane(vehicle_test_suite.TestSuite):
         self.reboot_sitl()
 
         self.wait_ready_to_arm()
-        self.assert_parameter_value("RNGFND_LANDING", 1)
         self.arm_vehicle()
+
+        # let GPS drift a little.
+        for i in range(5):
+            self.set_parameter("SIM_GPS1_ALT_OFS", -1*(i+1))
+            self.delay_sim_time(20)
 
         # Load and start mission
         self.load_mission("landing_drift_2.txt", strict=True)
@@ -4750,11 +4756,29 @@ class AutoTestPlane(vehicle_test_suite.TestSuite):
         self.wait_current_waypoint(1, timeout=5)
         self.wait_groundspeed(0, 10, timeout=5)
 
+        self.wait_current_waypoint(19, timeout=800)
+        # # Revert the GPS drift, to get a positive landing estimated height error.
+        # for i in range(5):
+        #     self.set_parameter("SIM_GPS1_ALT_OFS", -5+5*i)
+        #     self.delay_sim_time(5)
+        # self.set_parameter("SIM_SONAR_SCALE", 52)
+
+        # Ensure the rangefinder measures higher than what we actually are.
+        self.wait_current_waypoint(19, timeout=800)
+        self.set_parameter("RNGFND1_OFFSET", 0)
+        # self.set_parameter("RNGFND1_OFFSET", -1.250)  # This will cause a lot of offset correction and crash into ground.
+
         # Wait for landing waypoint
         self.wait_current_waypoint(22, timeout=800)
+            
+        # Abort the landing manually.
+        self.wait_altitude(6, 7, relative=True, timeout=300)
+        self.set_rc(3, 2000)
+        self.delay_sim_time(1)
+        self.set_rc(3, 1000)
 
         # Wait for landing restart and its next waypoint.
-        self.wait_current_waypoint(14, timeout=240)
+        self.wait_current_waypoint(15, timeout=240)
 
         # Wait for landing waypoint (second attempt)
         self.wait_current_waypoint(22, timeout=100)
