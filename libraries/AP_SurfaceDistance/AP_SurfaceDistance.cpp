@@ -15,17 +15,10 @@
  # define RANGEFINDER_TILT_CORRECTION 1
 #endif
 
-#ifndef RANGEFINDER_GLITCH_NUM_SAMPLES
- # define RANGEFINDER_GLITCH_NUM_SAMPLES  3   // number of rangefinder glitches in a row to take new reading
-#endif
-
-#ifndef RANGEFINDER_GLITCH_ALT_CM
- # define RANGEFINDER_GLITCH_ALT_CM  200      // amount of rangefinder change to be considered a glitch
-#endif
-
 #ifndef RANGEFINDER_HEALTH_MIN
  # define RANGEFINDER_HEALTH_MIN 3          // number of good reads that indicates a healthy rangefinder
 #endif
+
 
 void AP_SurfaceDistance::update()
 {
@@ -74,23 +67,23 @@ void AP_SurfaceDistance::update()
     // remember inertial alt to allow us to interpolate rangefinder
     inertial_alt_cm = inertial_nav.get_position_z_up_cm();
 
-    // glitch handling.  rangefinder readings more than RANGEFINDER_GLITCH_ALT_CM from the last good reading
+    // Glitch Handling. Rangefinder readings more than glitch_alt_m from the last good reading
     // are considered a glitch and glitch_count becomes non-zero
     // glitches clear after RANGEFINDER_GLITCH_NUM_SAMPLES samples in a row.
     // glitch_cleared_ms is set so surface tracking (or other consumers) can trigger a target reset
-    const int32_t glitch_cm = alt_cm - alt_cm_glitch_protected;
+    const float glitch_m = alt_cm*0.01f - alt_cm_glitch_protected*0.01f;
     bool reset_terrain_offset = false;
-    if (glitch_cm >= RANGEFINDER_GLITCH_ALT_CM) {
+    if ((glitch_m >= parameters->glitch_alt) && (parameters->glitch_alt > 0)) {
         glitch_count = MAX(glitch_count+1, 1);
         status |= (uint8_t)Surface_Distance_Status::Glitch_Detected;
-    } else if (glitch_cm <= -RANGEFINDER_GLITCH_ALT_CM) {
+    } else if ((glitch_m <= -parameters->glitch_alt) && (parameters->glitch_alt > 0)) {
         glitch_count = MIN(glitch_count-1, -1);
         status |= (uint8_t)Surface_Distance_Status::Glitch_Detected;
     } else {
         glitch_count = 0;
         alt_cm_glitch_protected = alt_cm;
     }
-    if (abs(glitch_count) >= RANGEFINDER_GLITCH_NUM_SAMPLES) {
+    if ((abs(glitch_count) >= parameters->glitch_num_samples) && (parameters->glitch_num_samples > 0)) {
         // clear glitch and record time so consumers (i.e. surface tracking) can reset their target altitudes
         glitch_count = 0;
         alt_cm_glitch_protected = alt_cm;
