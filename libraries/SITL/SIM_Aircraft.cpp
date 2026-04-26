@@ -558,6 +558,7 @@ float Aircraft::rangefinder_range() const
     }
 
     float altitude = perpendicular_distance_to_rangefinder_surface();
+    altitude += sitl->sonar_offset;
 
     // sensor position offset in body frame
     const Vector3f relPosSensorBF = sitl->rngfnd_pos_offset;
