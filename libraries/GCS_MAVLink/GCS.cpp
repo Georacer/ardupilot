@@ -277,6 +277,12 @@ void GCS::init()
     // already converted before their rename tables; repeating it is harmless.
     convert_parameters();
     mavlink_system.sysid = sysid_this_mav();
+#if AP_MAVLINK_GCS_CONTROL_ENABLED
+    if (option_is_enabled(Option::GCS_SYSID_ENFORCE)) {
+        _operator_control_sysid = mav_gcs_sysid;
+        _operator_control_sysid_high = mav_gcs_sysid_high;
+    }
+#endif
 }
 
 /*
@@ -745,6 +751,14 @@ MAV_RESULT GCS::lua_command_int_packet(const mavlink_command_int_t &packet)
 */
 bool GCS::sysid_is_gcs(uint32_t _sysid) const
 {
+#if AP_MAVLINK_GCS_CONTROL_ENABLED
+    if (_operator_control_sysid != 0) {
+        if (_operator_control_sysid_high <= _operator_control_sysid) {
+            return _operator_control_sysid == _sysid;
+        }
+        return _sysid >= _operator_control_sysid && _sysid <= _operator_control_sysid_high;
+    }
+#endif
     const uint32_t low = mav_gcs_sysid;
     const uint32_t high = mav_gcs_sysid_high;
     if (high <= low) {
@@ -775,5 +789,15 @@ void GCS::poweroff_initiated(float p1, const char *fmt, ...)
     send_textv(MAV_SEVERITY_WARNING, fmt, arg_list);
     va_end(arg_list);
 }
+
+#if AP_MAVLINK_GCS_CONTROL_ENABLED
+void GCS::set_operator_control(uint8_t oc_sysid, uint8_t oc_sysid_high, bool allow_takeover)
+{
+    _operator_control_sysid = oc_sysid;
+    _operator_control_sysid_high = oc_sysid_high;
+    _operator_control_allow_takeover = allow_takeover;
+    send_message(MSG_CONTROL_STATUS);
+}
+#endif
 
 #endif  // HAL_GCS_ENABLED
