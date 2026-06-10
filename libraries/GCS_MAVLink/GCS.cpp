@@ -279,6 +279,7 @@ void GCS::init()
     mavlink_system.sysid = sysid_this_mav();
 #if AP_MAVLINK_GCS_CONTROL_ENABLED
     if (option_is_enabled(Option::GCS_SYSID_ENFORCE)) {
+        _operator_control_primary = mav_gcs_sysid;
         _operator_control_sysid = mav_gcs_sysid;
         _operator_control_sysid_high = mav_gcs_sysid_high;
     }
@@ -791,10 +792,11 @@ void GCS::poweroff_initiated(float p1, const char *fmt, ...)
 }
 
 #if AP_MAVLINK_GCS_CONTROL_ENABLED
-void GCS::set_operator_control(uint8_t oc_sysid, uint8_t oc_sysid_high, bool allow_takeover)
+void GCS::set_operator_control(uint8_t primary, uint8_t range_low, uint8_t range_high, bool allow_takeover)
 {
-    _operator_control_sysid = oc_sysid;
-    _operator_control_sysid_high = oc_sysid_high;
+    _operator_control_primary = primary;
+    _operator_control_sysid = range_low;
+    _operator_control_sysid_high = range_high;
     _operator_control_allow_takeover = allow_takeover;
     // clear secondary cache on any ownership change
     memset(_secondary_gcs, 0, sizeof(_secondary_gcs));
