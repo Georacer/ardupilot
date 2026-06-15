@@ -1007,20 +1007,9 @@ void AC_AttitudeControl::attitude_controller_run_quat()
 
     // target angle velocity vector in the body frame
     Vector3f ang_vel_body_feedforward = rotation_target_to_body * _ang_vel_target_rads;
-    Vector3f gyro = get_latest_gyro();
-    // Correct the thrust vector and smoothly add feedforward and yaw input
-    _feedforward_scalar = 1.0f;
-    if (_thrust_error_angle_rad > AC_ATTITUDE_THRUST_ERROR_ANGLE_RAD * 2.0f) {
-        ang_vel_body_rads.z = gyro.z;
-    } else if (_thrust_error_angle_rad > AC_ATTITUDE_THRUST_ERROR_ANGLE_RAD) {
-        _feedforward_scalar = (1.0f - (_thrust_error_angle_rad - AC_ATTITUDE_THRUST_ERROR_ANGLE_RAD) / AC_ATTITUDE_THRUST_ERROR_ANGLE_RAD);
-        ang_vel_body_rads.x += ang_vel_body_feedforward.x * _feedforward_scalar;
-        ang_vel_body_rads.y += ang_vel_body_feedforward.y * _feedforward_scalar;
-        ang_vel_body_rads.z += ang_vel_body_feedforward.z;
-        ang_vel_body_rads.z = gyro.z * (1.0 - _feedforward_scalar) + ang_vel_body_rads.z * _feedforward_scalar;
-    } else {
-        ang_vel_body_rads += ang_vel_body_feedforward;
-    }
+
+    // Add feedforward and yaw input
+    ang_vel_body_rads += ang_vel_body_feedforward;
 
     // Record error to handle EKF resets
     _attitude_ang_error = attitude_body.inverse() * _attitude_target;
