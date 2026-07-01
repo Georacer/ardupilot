@@ -14270,6 +14270,8 @@ class AutoTestCopter(vehicle_test_suite.TestSuite):
     def MAV_CMD_REQUEST_OPERATOR_CONTROL(self):
         '''test MAV_CMD_REQUEST_OPERATOR_CONTROL GCS operator control protocol'''
         self.context_push()
+        self.set_parameter("SERIAL5_PROTOCOL", 2)  # Configure a 3rd serial port.
+        self.reboot_sitl()
         # SERIAL1 and SERIAL2 default to MAVLink2, ports 5762 and 5763
         mav2 = self.context_create_mavlink_connection(
             "tcp:localhost:%u" % self.adjust_ardupilot_port(5762),
@@ -14280,6 +14282,12 @@ class AutoTestCopter(vehicle_test_suite.TestSuite):
             "tcp:localhost:%u" % self.adjust_ardupilot_port(5763),
             source_system=9,
             source_component=9,
+        )
+
+        mav_stranger = self.context_create_mavlink_connection(
+            "tcp:localhost:%u" % self.adjust_ardupilot_port(5765),
+            source_system=11,
+            source_component=11,
         )
 
         # without GCS_SYSID_ENFORCE, operator control is not pre-populated from
@@ -14416,6 +14424,24 @@ class AutoTestCopter(vehicle_test_suite.TestSuite):
             raise NotAchievedException(
                 "Expected sysid 9 in gcs_secondary, got %s" % str(m.gcs_secondary))
 
+        # mode change from out-of-range-operator is dropped by accept_packet (no COMMAND_ACK)
+        self.send_cmd(
+            mavutil.mavlink.MAV_CMD_DO_SET_MODE,
+            p1=mavutil.mavlink.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED,
+            p2=4,  # GUIDED
+            mav=mav_stranger,
+        )
+        self.assert_not_receive_message("COMMAND_ACK", mav=mav3, timeout=2)
+
+        # arm/disarm from out-of-range-operator is also dropped
+        self.send_cmd(
+            mavutil.mavlink.MAV_CMD_COMPONENT_ARM_DISARM,
+            p1=0,
+            mav=mav_stranger,
+        )
+        self.assert_not_receive_message("COMMAND_ACK", mav=mav3, timeout=2)
+
+
         # mav3 (sysid=9) is within the range and can release
         self.run_cmd_int(
             mavutil.mavlink.MAV_CMD_REQUEST_OPERATOR_CONTROL,
@@ -14453,6 +14479,7 @@ class AutoTestCopter(vehicle_test_suite.TestSuite):
         # close existing extra connections before rebooting
         mav2.close()
         mav3.close()
+        mav_stranger.close()
         self.set_parameter("MAV_GCS_SYSID", self.mav.source_system)
         self.set_parameter("MAV_OPTIONS", 1)  # GCS_SYSID_ENFORCE bit
         self.reboot_sitl()
