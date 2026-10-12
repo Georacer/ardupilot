@@ -7,6 +7,7 @@ AP_FLAKE8_CLEAN
 from __future__ import annotations
 
 import copy
+import json
 import logging
 import math
 import os
@@ -24146,19 +24147,22 @@ return update, 1000
         '''Fly a SystemID sweep and record the log for the modelling work.'''
         target_alt = 50
         tolerance = 20
-        self.set_parameters({
+        params = {
             "ARMING_SKIPCHK": 1 << 5,  # Skip the parameter check.
             "LOG_BITMASK": 180223,  # Default plus fast attitude and PID logs.
-            "ATC_RAT_RLL_I": 0,  # As per recommendations.
-            "ATC_RATE_FF_ENAB": 0,  # As per recommendations.
-            "SID_AXIS": 10,
-            "SID_MAGNITUDE": 0.15,
-            "SID_F_START_HZ": 0.05,
-            "SID_F_STOP_HZ": 5,
-            "SID_T_FADE_IN": 5,
-            "SID_T_REC": 130,
-            "SID_T_FADE_OUT": 5,
-        })
+            "LOG_DISARMED": 0,  # Do not pollute the log with parameter changes.
+            "LOG_FILE_RATEMAX": 0,  # The autotest default of 10 Hz is too slow for a 5 Hz sweep.
+        }
+        # The runner of the modelling work gives the parameter set of one
+        # flight in a JSON file. Its values replace the ones above.
+        param_file = os.environ.get("SYSID_PARAM_FILE")
+        if param_file:
+            with open(param_file) as f:
+                overrides = json.load(f)
+            self.progress("SystemID parameters from %s: %s" % (param_file, overrides))
+            params.update(overrides)
+        self.set_parameters(params)
+        self.reboot_sitl()
         # The mode adds two cycles at the start frequency before the sweep.
         sweep_time = (self.get_parameter("SID_T_FADE_IN") +
                       2 / self.get_parameter("SID_F_START_HZ") +
