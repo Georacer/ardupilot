@@ -23868,6 +23868,7 @@ return update, 1000
             self.FenceAltFrameComparison,
             self.FenceFloorAutoEnableOnArming,
             self.AutoTuneSwitch,
+            self.fly_systemid_test,
             self.GPSFixTypes,
             self.AirModeLanding,
             self.TestLocalHomePosition,
@@ -24121,6 +24122,89 @@ return update, 1000
             "BATT_MONITOR": 8,  # 4 is UAVCAN batterinfo
         })
         self.delay_sim_time(2, reason="battery monitor replacement to take effect")
+
+    def systemid_hold_altitude_step(self, target_alt, tolerance):
+        '''One step of the manual altitude hold for the SystemID flight.
+
+        Reads the altitude and the climb rate, then sets the throttle
+        channel around the hover value. Raises when the altitude leaves
+        the band around target_alt.
+        '''
+        m = self.assert_receive_message('GLOBAL_POSITION_INT')
+        alt = m.relative_alt / 1000.0  # mm -> m
+        climb = -m.vz / 100.0  # cm/s down -> m/s up
+        error = alt - target_alt
+        if abs(error) > tolerance:
+            raise NotAchievedException(
+                "Altitude %.1fm left the band of %.1fm around %.1fm" %
+                (alt, tolerance, target_alt))
+        pwm = int(1500 - 15 * error - 80 * climb)
+        pwm = max(1350, min(1650, pwm))
+        self.set_rc(3, pwm, timeout=None)
+
+    def fly_systemid_test(self):
+        '''Fly a SystemID sweep and record the log for the modelling work.'''
+        target_alt = 50
+        tolerance = 20
+        self.set_parameters({
+            "ARMING_SKIPCHK": 1 << 5,  # Skip the parameter check.
+            "LOG_BITMASK": 180223,  # Default plus fast attitude and PID logs.
+            "ATC_RAT_RLL_I": 0,  # As per recommendations.
+            "ATC_RATE_FF_ENAB": 0,  # As per recommendations.
+            "SID_AXIS": 10,
+            "SID_MAGNITUDE": 0.15,
+            "SID_F_START_HZ": 0.05,
+            "SID_F_STOP_HZ": 5,
+            "SID_T_FADE_IN": 5,
+            "SID_T_REC": 130,
+            "SID_T_FADE_OUT": 5,
+        })
+        # The mode adds two cycles at the start frequency before the sweep.
+        sweep_time = (self.get_parameter("SID_T_FADE_IN") +
+                      2 / self.get_parameter("SID_F_START_HZ") +
+                      self.get_parameter("SID_T_REC") +
+                      self.get_parameter("SID_T_FADE_OUT"))
+
+        # Take off in LOITER and wait for the altitude to settle.
+        self.takeoff(target_alt, mode="LOITER", altitude_max=target_alt + 10)
+        self.wait_altitude(target_alt - 3, target_alt + 3, relative=True, timeout=60, minimum_duration=3)
+
+        # Hold the altitude by hand in STABILIZE before the sweep.
+        self.change_mode("STABILIZE")
+        tstart = self.get_sim_time()
+        while self.get_sim_time_cached() - tstart < 5:
+            self.systemid_hold_altitude_step(target_alt, tolerance)
+            self.delay_sim_time(0.2, reason="pilot loop")
+
+        # Fly the sweep and keep the altitude by hand until it ends.
+        # wait_statustext blocks for 0.1s of wall clock per call of
+        # the_function, which is too slow for the pilot loop, so the
+        # end of the sweep is caught with a message hook instead.
+        finished = []
+
+        def hook(mav, m):
+            if m.get_type() != "STATUSTEXT":
+                return
+            if "SystemID Finished" in m.text:
+                finished.append(m)
+            elif "SystemID Stopped" in m.text:
+                raise NotAchievedException(m.text)
+
+        self.install_message_hook(hook)
+        try:
+            self.change_mode("SYSTEMID")
+            tstart = self.get_sim_time()
+            while not finished:
+                if self.get_sim_time_cached() - tstart > sweep_time + 60:
+                    raise AutoTestTimeoutException("SystemID did not finish")
+                self.systemid_hold_altitude_step(target_alt, tolerance)
+        finally:
+            self.remove_message_hook(hook)
+        self.hover()
+
+        # Return, land and disarm.
+        self.change_mode("RTL")
+        self.wait_landed_and_disarmed(timeout=180)
 
     def testcanbatt(self):
         ret = ([
