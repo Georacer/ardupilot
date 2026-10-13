@@ -23870,6 +23870,7 @@ return update, 1000
             self.FenceFloorAutoEnableOnArming,
             self.AutoTuneSwitch,
             self.fly_systemid_test,
+            self.fly_systemid_thrust_test,
             self.GPSFixTypes,
             self.AirModeLanding,
             self.TestLocalHomePosition,
@@ -24124,12 +24125,13 @@ return update, 1000
         })
         self.delay_sim_time(2, reason="battery monitor replacement to take effect")
 
-    def systemid_hold_altitude_step(self, target_alt, tolerance):
+    def systemid_hold_altitude_step(self, target_alt, tolerance, kp=15, kd=80):
         '''One step of the manual altitude hold for the SystemID flight.
 
         Reads the altitude and the climb rate, then sets the throttle
-        channel around the hover value. Raises when the altitude leaves
-        the band around target_alt.
+        channel around the hover value, by kp PWM per metre of altitude
+        error and kd PWM per metre per second of climb. Raises when the
+        altitude leaves the band around target_alt.
         '''
         m = self.assert_receive_message('GLOBAL_POSITION_INT')
         alt = m.relative_alt / 1000.0  # mm -> m
@@ -24139,12 +24141,18 @@ return update, 1000
             raise NotAchievedException(
                 "Altitude %.1fm left the band of %.1fm around %.1fm" %
                 (alt, tolerance, target_alt))
-        pwm = int(1500 - 15 * error - 80 * climb)
+        pwm = int(1500 - kp * error - kd * climb)
         pwm = max(1350, min(1650, pwm))
         self.set_rc(3, pwm, timeout=None)
 
-    def fly_systemid_test(self):
-        '''Fly a SystemID sweep and record the log for the modelling work.'''
+    def fly_systemid_sweep(self, params, sweep_kp=15, sweep_kd=80):
+        '''Fly one SystemID sweep and record the log for the modelling work.
+
+        Takes off in LOITER, holds the altitude by hand in STABILIZE, flies
+        the sweep in SYSTEMID and returns in RTL. params holds the axis and
+        the chirp. The pilot loop holds the altitude with the gains sweep_kp
+        and sweep_kd during the sweep, see systemid_hold_altitude_step.
+        '''
         target_alt = 50
         tolerance = 20
         params = {
@@ -24152,6 +24160,7 @@ return update, 1000
             "LOG_BITMASK": 180223,  # Default plus fast attitude and PID logs.
             "LOG_DISARMED": 0,  # Do not pollute the log with parameter changes.
             "LOG_FILE_RATEMAX": 0,  # The autotest default of 10 Hz is too slow for a 5 Hz sweep.
+            **params,
         }
         # The runner of the modelling work gives the parameter set of one
         # flight in a JSON file. Its values replace the ones above.
@@ -24201,7 +24210,7 @@ return update, 1000
             while not finished:
                 if self.get_sim_time_cached() - tstart > sweep_time + 60:
                     raise AutoTestTimeoutException("SystemID did not finish")
-                self.systemid_hold_altitude_step(target_alt, tolerance)
+                self.systemid_hold_altitude_step(target_alt, tolerance, sweep_kp, sweep_kd)
         finally:
             self.remove_message_hook(hook)
         self.hover()
@@ -24209,6 +24218,28 @@ return update, 1000
         # Return, land and disarm.
         self.change_mode("RTL")
         self.wait_landed_and_disarmed(timeout=180)
+
+    def fly_systemid_test(self):
+        '''Fly a SystemID roll mixer sweep and record the log for the modelling work.'''
+        self.fly_systemid_sweep({
+            "SID_AXIS": 10,  # Mixer roll.
+            "SID_MAGNITUDE": 0.15,  # Mixer units, -1 to 1.
+        })
+
+    def fly_systemid_thrust_test(self):
+        '''Fly a SystemID thrust mixer sweep and record the log for the modelling work.
+
+        The chirp adds to the throttle, in throttle units of 0 to 1. A
+        magnitude of 0.1 is a quarter of the SITL hover throttle of 0.39
+        and moves the vehicle by about 2 m at the 0.2 Hz chirp start. The
+        pilot loop keeps weak gains during the sweep, so it holds the drift
+        and does not cancel the chirp at its low frequencies. Its throttle
+        adds to the chirp in RATE.AOut, the input of the vertical model.
+        '''
+        self.fly_systemid_sweep({
+            "SID_AXIS": 13,  # Mixer thrust.
+            "SID_MAGNITUDE": 0.1,  # Throttle units, 0 to 1.
+        }, sweep_kp=3, sweep_kd=10)
 
     def testcanbatt(self):
         ret = ([
