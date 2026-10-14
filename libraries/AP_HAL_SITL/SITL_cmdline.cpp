@@ -937,10 +937,12 @@ static bool search_once(const AP_JSON::value *root, const char *vehicle_str,
   the case where a heli binary (AP_BUILD_TARGET_NAME=ArduCopter) is
   asked for a frame that lives under "Helicopter" in the JSON.
 
-  If the full model string is not found, trailing dash-separated suffixes
-  are stripped and the lookup is retried (e.g. "plane-catapult" falls back
-  to "plane"). This mirrors the model-constructor prefix matching so that
-  physics variants automatically inherit the base frame's defaults.
+  If the full model string is not found, a colon-separated argument is
+  stripped first (e.g. "last_letter:plane" falls back to "last_letter"),
+  then trailing dash-separated suffixes are stripped and the lookup is
+  retried (e.g. "plane-catapult" falls back to "plane"). This mirrors the
+  model-constructor prefix matching so that physics variants and external
+  frontends automatically inherit the base frame's defaults.
  */
 void SITL_State::resolve_defaults_from_romfs(const char *model_str, const char *vehicle_str)
 {
@@ -961,6 +963,11 @@ void SITL_State::resolve_defaults_from_romfs(const char *model_str, const char *
         found = search_once(root, vehicle_str, candidate, joined);
         if (found) {
             break;
+        }
+        const size_t colon = candidate.find(':');
+        if (colon != std::string::npos) {
+            candidate = candidate.substr(0, colon);
+            continue;
         }
         const size_t dash = candidate.rfind('-');
         if (dash == std::string::npos) {
