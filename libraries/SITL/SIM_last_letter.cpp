@@ -34,13 +34,18 @@
 #include <unistd.h>
 
 #include <AP_HAL/AP_HAL.h>
+#include <AP_Vehicle/AP_Vehicle_Type.h>
 
 extern const AP_HAL::HAL& hal;
 
 namespace SITL {
 
 // The default aircraft when --model is given without a ":<aircraft>" suffix.
+#if APM_BUILD_TYPE(APM_BUILD_ArduCopter)
+static const char *default_model_name = "ardupilot_copter";
+#else
 static const char *default_model_name = "ardupilot_plane";
+#endif
 
 // The simulator process, so it can be reaped when SITL exits. SITL::Aircraft has
 // no destructor to hook into, hence the file-static plus atexit().

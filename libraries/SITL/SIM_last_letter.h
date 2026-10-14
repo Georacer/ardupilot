@@ -20,9 +20,10 @@
   the simulator process, which lives outside the ArduPilot tree:
 
       sim_vehicle.py -v ArduPlane --model last_letter:<aircraft>
+      sim_vehicle.py -v ArduCopter --model last_letter:<aircraft>
 
   The aircraft name after the colon is passed to the child; it defaults to
-  "ardupilot_plane". The binary is looked up on PATH as "last_letter_ardupilot",
+  "ardupilot_copter" in ArduCopter and to "ardupilot_plane" otherwise. The binary is looked up on PATH as "last_letter_ardupilot",
   overridable with the LAST_LETTER_SITL_BIN environment variable.
 
   Optional features are selected with the SITL --config string, which
