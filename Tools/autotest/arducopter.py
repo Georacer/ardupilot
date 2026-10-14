@@ -24170,6 +24170,13 @@ return update, 1000
                 overrides = json.load(f)
             self.progress("SystemID parameters from %s: %s" % (param_file, overrides))
             params.update(overrides)
+        # The runner can also name the SITL model of the flight, for example
+        # last_letter:ardupilot_copter_linear. SITL then restarts with that
+        # model before the parameters are set.
+        frame = os.environ.get("SYSID_FRAME")
+        if frame:
+            self.progress("SystemID model from SYSID_FRAME: %s" % frame)
+            self.customise_SITL_commandline([], model=frame)
         self.set_parameters(params)
         self.reboot_sitl()
         # The mode adds two cycles at the start frequency before the sweep.
