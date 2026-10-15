@@ -23871,6 +23871,7 @@ return update, 1000
             self.AutoTuneSwitch,
             self.fly_systemid_test,
             self.fly_systemid_thrust_test,
+            self.fly_systemid_doublet_test,
             self.GPSFixTypes,
             self.AirModeLanding,
             self.TestLocalHomePosition,
@@ -24125,13 +24126,14 @@ return update, 1000
         })
         self.delay_sim_time(2, reason="battery monitor replacement to take effect")
 
-    def systemid_hold_altitude_step(self, target_alt, tolerance, kp=15, kd=80):
+    def systemid_hold_altitude_step(self, target_alt, tolerance, kp=15, kd=80, offset=0):
         '''One step of the manual altitude hold for the SystemID flight.
 
         Reads the altitude and the climb rate, then sets the throttle
         channel around the hover value, by kp PWM per metre of altitude
-        error and kd PWM per metre per second of climb. Raises when the
-        altitude leaves the band around target_alt.
+        error and kd PWM per metre per second of climb. offset adds to
+        the loop output after its limits, for a throttle doublet. Raises
+        when the altitude leaves the band around target_alt.
         '''
         m = self.assert_receive_message('GLOBAL_POSITION_INT')
         alt = m.relative_alt / 1000.0  # mm -> m
@@ -24142,19 +24144,17 @@ return update, 1000
                 "Altitude %.1fm left the band of %.1fm around %.1fm" %
                 (alt, tolerance, target_alt))
         pwm = int(1500 - kp * error - kd * climb)
-        pwm = max(1350, min(1650, pwm))
+        pwm = max(1350, min(1650, pwm)) + int(offset)
         self.set_rc(3, pwm, timeout=None)
 
-    def fly_systemid_sweep(self, params, sweep_kp=15, sweep_kd=80):
-        '''Fly one SystemID sweep and record the log for the modelling work.
+    def systemid_setup(self, params, fixed=None):
+        '''Set the parameters of a SystemID flight and reboot SITL.
 
-        Takes off in LOITER, holds the altitude by hand in STABILIZE, flies
-        the sweep in SYSTEMID and returns in RTL. params holds the axis and
-        the chirp. The pilot loop holds the altitude with the gains sweep_kp
-        and sweep_kd during the sweep, see systemid_hold_altitude_step.
+        params holds the values of the test. The JSON file named by
+        SYSID_PARAM_FILE replaces them, and fixed replaces both. The SITL
+        model named by SYSID_FRAME replaces the model of the autotest.
+        Returns the parameters that the flight uses.
         '''
-        target_alt = 50
-        tolerance = 20
         params = {
             "ARMING_SKIPCHK": 1 << 5,  # Skip the parameter check.
             "LOG_BITMASK": 180223,  # Default plus fast attitude and PID logs.
@@ -24170,6 +24170,7 @@ return update, 1000
                 overrides = json.load(f)
             self.progress("SystemID parameters from %s: %s" % (param_file, overrides))
             params.update(overrides)
+        params.update(fixed or {})
         # The runner can also name the SITL model of the flight, for example
         # last_letter:ardupilot_copter_linear. SITL then restarts with that
         # model before the parameters are set.
@@ -24179,27 +24180,40 @@ return update, 1000
             self.customise_SITL_commandline([], model=frame)
         self.set_parameters(params)
         self.reboot_sitl()
-        # The mode adds two cycles at the start frequency before the sweep.
-        sweep_time = (self.get_parameter("SID_T_FADE_IN") +
-                      2 / self.get_parameter("SID_F_START_HZ") +
-                      self.get_parameter("SID_T_REC") +
-                      self.get_parameter("SID_T_FADE_OUT"))
+        return params
 
-        # Take off in LOITER and wait for the altitude to settle.
+    def systemid_record_time(self):
+        '''The time from the switch to SYSTEMID to the end of the record.'''
+        # The mode adds two cycles at the start frequency before the sweep.
+        return (self.get_parameter("SID_T_FADE_IN") +
+                2 / self.get_parameter("SID_F_START_HZ") +
+                self.get_parameter("SID_T_REC") +
+                self.get_parameter("SID_T_FADE_OUT"))
+
+    def systemid_takeoff(self, target_alt, tolerance):
+        '''Take off in LOITER, then hold the altitude by hand in STABILIZE for 5 s.'''
         self.takeoff(target_alt, mode="LOITER", altitude_max=target_alt + 10)
         self.wait_altitude(target_alt - 3, target_alt + 3, relative=True, timeout=60, minimum_duration=3)
-
-        # Hold the altitude by hand in STABILIZE before the sweep.
         self.change_mode("STABILIZE")
         tstart = self.get_sim_time()
         while self.get_sim_time_cached() - tstart < 5:
             self.systemid_hold_altitude_step(target_alt, tolerance)
             self.delay_sim_time(0.2, reason="pilot loop")
 
-        # Fly the sweep and keep the altitude by hand until it ends.
+    def systemid_fly_record(self, target_alt, tolerance, gains, sticks=None):
+        '''Fly the SYSTEMID record, hold the altitude by hand, then return in RTL.
+
+        gains is a function of the time since the switch to SYSTEMID. It
+        returns the gains kp and kd of the pilot loop, see
+        systemid_hold_altitude_step. sticks is an optional function of
+        the same time. It returns a channel and a PWM offset from the
+        stick centre. An offset on channel 3 adds to the output of the
+        pilot loop.
+        '''
+        record_time = self.systemid_record_time()
         # wait_statustext blocks for 0.1s of wall clock per call of
         # the_function, which is too slow for the pilot loop, so the
-        # end of the sweep is caught with a message hook instead.
+        # end of the record is caught with a message hook instead.
         finished = []
 
         def hook(mav, m):
@@ -24214,10 +24228,22 @@ return update, 1000
         try:
             self.change_mode("SYSTEMID")
             tstart = self.get_sim_time()
+            last_stick = None
             while not finished:
-                if self.get_sim_time_cached() - tstart > sweep_time + 60:
+                elapsed = self.get_sim_time_cached() - tstart
+                if elapsed > record_time + 60:
                     raise AutoTestTimeoutException("SystemID did not finish")
-                self.systemid_hold_altitude_step(target_alt, tolerance, sweep_kp, sweep_kd)
+                throttle_offset = 0
+                if sticks is not None:
+                    channel, offset = sticks(elapsed)
+                    if channel == 3:
+                        throttle_offset = offset
+                    elif (channel, offset) != last_stick:
+                        # Send the stick only when it moves, the loop is fast.
+                        self.set_rc(channel, 1500 + int(offset), timeout=None)
+                        last_stick = (channel, offset)
+                kp, kd = gains(elapsed)
+                self.systemid_hold_altitude_step(target_alt, tolerance, kp, kd, throttle_offset)
         finally:
             self.remove_message_hook(hook)
         self.hover()
@@ -24225,6 +24251,20 @@ return update, 1000
         # Return, land and disarm.
         self.change_mode("RTL")
         self.wait_landed_and_disarmed(timeout=180)
+
+    def fly_systemid_sweep(self, params, sweep_kp=15, sweep_kd=80):
+        '''Fly one SystemID sweep and record the log for the modelling work.
+
+        Takes off in LOITER, holds the altitude by hand in STABILIZE, flies
+        the sweep in SYSTEMID and returns in RTL. params holds the axis and
+        the chirp. The pilot loop holds the altitude with the gains sweep_kp
+        and sweep_kd during the sweep, see systemid_hold_altitude_step.
+        '''
+        target_alt = 50
+        tolerance = 20
+        self.systemid_setup(params)
+        self.systemid_takeoff(target_alt, tolerance)
+        self.systemid_fly_record(target_alt, tolerance, lambda elapsed: (sweep_kp, sweep_kd))
 
     def fly_systemid_test(self):
         '''Fly a SystemID roll mixer sweep and record the log for the modelling work.'''
@@ -24247,6 +24287,55 @@ return update, 1000
             "SID_AXIS": 13,  # Mixer thrust.
             "SID_MAGNITUDE": 0.1,  # Throttle units, 0 to 1.
         }, sweep_kp=3, sweep_kd=10)
+
+    def fly_systemid_doublet_test(self):
+        '''Fly a stick doublet in SYSTEMID and record the log to verify the models.
+
+        Reads the parameter set of the sweep flights and keeps its SID_AXIS.
+        The chirp is off: SID_MAGNITUDE 0, no fades and a record of 30 s.
+        SYSTEMID passes the sticks through like STABILIZE and logs SIDD.
+        The doublet goes on the stick of the axis: roll for 10, pitch for
+        11, yaw for 12 and throttle for 13. It starts after 10 s of quiet,
+        with 100 PWM around the centre and 1 s half periods. On the
+        throttle the doublet adds to the pilot loop. The loop holds the
+        altitude with the gains of the sweep test during the quiet time,
+        so the vehicle settles, and with the weak gains of the thrust test
+        from the doublet start.
+        '''
+        target_alt = 20
+        tolerance = 15
+        # The doublet replaces the chirp, whatever the parameter file says.
+        params = self.systemid_setup({
+            "SID_AXIS": 10,  # Mixer roll.
+        }, fixed={
+            "SID_MAGNITUDE": 0,
+            "SID_T_FADE_IN": 0,
+            "SID_T_FADE_OUT": 0,
+            "SID_T_REC": 30,
+        })
+        axis = int(params["SID_AXIS"])
+        channels = {10: 1, 11: 2, 12: 4, 13: 3}
+        if axis not in channels:
+            raise ValueError("No doublet channel for SID_AXIS %d" % axis)
+        channel = channels[axis]
+        quiet = 10  # Seconds in SYSTEMID before the doublet.
+        half_period = 1  # Seconds.
+        amplitude = 100  # PWM around the stick centre.
+
+        def doublet(elapsed):
+            if quiet <= elapsed < quiet + half_period:
+                return channel, amplitude
+            if quiet + half_period <= elapsed < quiet + 2 * half_period:
+                return channel, -amplitude
+            return channel, 0
+
+        def gains(elapsed):
+            if axis == 13 and elapsed >= quiet:
+                return 3, 10
+            return 15, 80
+
+        self.systemid_takeoff(target_alt, tolerance)
+        self.systemid_fly_record(target_alt, tolerance, gains, doublet)
 
     def testcanbatt(self):
         ret = ([
